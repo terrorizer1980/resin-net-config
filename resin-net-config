@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+var MBR = require('mbr');
+
+var executableName = process.argv[1].split('/').pop();
+
+var printUsageAndExit = function () {
+	console.error('Usage:');
+	console.error('    ', executableName, 'get <image> > network.config ')
+	console.error('    cat network.config |', executableName, 'set <image>')
+	process.exit(1);
+}
+
+var action = process.argv[2];
+if (['get', 'set'].indexOf(action) === -1) {
+	printUsageAndExit();
+}
+
+var imagePath = process.argv[3]
+
+if (!imagePath) {
+	printUsageAndExit();
+}
+
+if (!fs.existsSync(imagePath)) {
+	console.error('Image', imagePath, 'does not exist');
+	process.exit(1);
+}
+
+var BLOCK_SIZE = 512;
+var CONFIG_SIZE = 1 * 1024 * 1024;
+
+var mbr = new MBR();
+
+var fd = fs.openSync(imagePath, 'r+');
+
+console.error('Parsing image MBR');
+mbrBuf = new Buffer(BLOCK_SIZE);
+fs.readSync(fd, mbrBuf, 0, BLOCK_SIZE, 0);
+mbr.parse(mbrBuf);
+
+ebrOffset = mbr.partitions[3].firstLBA * BLOCK_SIZE;
+fs.readSync(fd, mbrBuf, 0, BLOCK_SIZE, ebrOffset);
+mbr.parse(mbrBuf);
+
+var configBuf = new Buffer(CONFIG_SIZE);
+var configOffset = ebrOffset + mbr.partitions[0].firstLBA * BLOCK_SIZE;
+
+console.log('Reading existing config');
+fs.readSync(fd, configBuf, 0, CONFIG_SIZE, configOffset);
+for (var configEnd = 0; configBuf[configEnd] != 0; configEnd++) {}
+
+var config = JSON.parse(configBuf.slice(0, configEnd));
+
+switch (action) {
+	case 'get':
+		if (config.files && config.files['network/network.config']) {
+			process.stdout.write(config.files['network/network.config']);
+		}
+		break;
+	case 'set':
+		configBuf.fill(0);
+		console.error('Reading new config from stdin..');
+		fs.readSync(0, configBuf, 0, CONFIG_SIZE, null);
+		for (var configEnd = 0; configBuf[configEnd] != 0; configEnd++) {}
+		
+		if (!config.files) {
+			config.files = {}
+		}
+
+		config.files['network/network.config'] = configBuf.slice(0, configEnd) + '';
+
+		configBuf.fill(0);
+		configBuf.write(JSON.stringify(config))
+
+		console.error('Writing config to image');
+		fs.writeSync(fd, configBuf, 0, CONFIG_SIZE, configOffset);
+		break;
+}
+
+console.error('Done')
