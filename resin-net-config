@@ -47,7 +47,7 @@ mbr.parse(mbrBuf);
 var configBuf = new Buffer(CONFIG_SIZE);
 var configOffset = ebrOffset + mbr.partitions[0].firstLBA * BLOCK_SIZE;
 
-console.log('Reading existing config');
+console.error('Reading existing config');
 fs.readSync(fd, configBuf, 0, CONFIG_SIZE, configOffset);
 for (var configEnd = 0; configBuf[configEnd] != 0; configEnd++) {}
 
