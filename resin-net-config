@@ -7,13 +7,16 @@ var executableName = process.argv[1].split('/').pop();
 
 var printUsageAndExit = function () {
 	console.error('Usage:');
-	console.error('    ', executableName, 'get <image> > network.config ')
-	console.error('    cat network.config |', executableName, 'set <image>')
+	console.error('    ', executableName, 'get <image> > network.config ');
+	console.error('    cat network.config |', executableName, 'set <image>');
+	console.error('');
+	console.error('    ', executableName, 'get_ethernet <image> > ethernet.config ');
+	console.error('    cat ethernet.config |', executableName, 'set_ethernet <image>');
 	process.exit(1);
 }
 
 var action = process.argv[2];
-if (['get', 'set'].indexOf(action) === -1) {
+if (['get', 'set', 'get_ethernet', 'set_ethernet'].indexOf(action) === -1) {
 	printUsageAndExit();
 }
 
@@ -53,13 +56,21 @@ for (var configEnd = 0; configBuf[configEnd] != 0; configEnd++) {}
 
 var config = JSON.parse(configBuf.slice(0, configEnd));
 
+CONF_PATH = 'network/network.config';
+
+if (action === 'get_ethernet' || action === 'set_ethernet') {
+	CONF_PATH = 'network/ethernet.config';
+}
+
 switch (action) {
 	case 'get':
-		if (config.files && config.files['network/network.config']) {
-			process.stdout.write(config.files['network/network.config']);
+	case 'get_ethernet':
+		if (config.files && config.files[CONF_PATH]) {
+			process.stdout.write(config.files[CONF_PATH]);
 		}
 		break;
 	case 'set':
+	case 'set_ethernet':
 		configBuf.fill(0);
 		console.error('Reading new config from stdin..');
 		fs.readSync(0, configBuf, 0, CONFIG_SIZE, null);
@@ -69,7 +80,7 @@ switch (action) {
 			config.files = {}
 		}
 
-		config.files['network/network.config'] = configBuf.slice(0, configEnd) + '';
+		config.files[CONF_PATH] = configBuf.slice(0, configEnd) + '';
 
 		configBuf.fill(0);
 		configBuf.write(JSON.stringify(config))
