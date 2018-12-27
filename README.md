@@ -1,3 +1,5 @@
+# DEPRECATED: This repo is no longer in use and will not work on 2.x balenaOS versions 
+
 # Overview
 
 This tool reads a resin raspberry pi image from a file and prints the network configuration to stdout, or reads a network configuration from stdin and writes it in the image.
